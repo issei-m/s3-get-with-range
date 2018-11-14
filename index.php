@@ -5,6 +5,7 @@ require __DIR__ . '/vendor/autoload.php';
 $s3 = new \Aws\S3\S3Client([
     'version' => '2006-03-01',
     'region' => 'us-west-2',
+    // MINIO
     'endpoint' => 'http://127.0.0.1:19000',
     'use_path_style_endpoint' => true,
     'access_key_id' => 'MINIO4DEV',
