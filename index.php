@@ -8,16 +8,15 @@ $s3 = new \Aws\S3\S3Client([
     // MINIO
     'endpoint' => 'http://127.0.0.1:9000',
     'use_path_style_endpoint' => true,
-    'access_key_id' => 'MINIO4DEV',
-    'secret_access_key' => 'MINIO4DEV',
+    'credentials' =>  new Aws\Credentials\Credentials('MINIO4DEV', 'MINIO4DEV'),
 ]);
 
 $csvObjectInfo = ['Bucket' => 'test', 'Key' => 'awesome.csv'];
 
 $csvContentLength = $s3->headObject($csvObjectInfo)['ContentLength'];
 
-// CSVの内容を10MBバイトごとに分割したリストを作成.
-$csvContentsInChunk = \DusanKasan\Knapsack\Collection
+// CSVの内容を1MB毎に分割したリストを作成.
+$csvContentChunks = \DusanKasan\Knapsack\Collection
     ::from(function () use ($csvContentLength) {
         static $chunkSize = 1024 * 1024;
 
@@ -37,13 +36,13 @@ $csvContentsInChunk = \DusanKasan\Knapsack\Collection
     })
 ;
 
-$csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentsInChunk) {
+$csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentChunks) {
     static $expectedCsvColumns = 5;
 
     $incompleteContentBuffer = '';
     $counter = 0;
 
-    foreach ($csvContentsInChunk as $chunk) {
+    foreach ($csvContentChunks as $chunk) {
         $fp = \fopen('php://memory', 'r+');
 
         try {
@@ -90,5 +89,5 @@ $csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentsIn
 });
 
 foreach ($csvRows as $v) {
-    echo \sprintf('%s / %.4f MB', \print_r($v, true), \memory_get_peak_usage() / 1024 / 1024), "\n";
+    echo \sprintf('%s, %s / %.4f MB', $v[0], $v[4], \memory_get_usage(true) / 1024 / 1024), "\n";
 }
