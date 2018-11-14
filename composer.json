@@ -1,0 +1,6 @@
+{
+    "require": {
+        "aws/aws-sdk-php": "^3.71",
+        "dusank/knapsack": "^10.0"
+    }
+}
