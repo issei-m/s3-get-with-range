@@ -32,7 +32,7 @@ $csvContentChunkStreams = \DusanKasan\Knapsack\Collection
         return \sprintf('bytes=%s-%s', $range[0], $range[1]);
     })
     ->map(function (string $rfc2616ContentRange) use ($s3, $objectAddress) {
-        return $s3->getObject(array_merge($objectAddress, ['Range' => $rfc2616ContentRange]))['Body'];
+        return $s3->getObject(\array_merge($objectAddress, ['Range' => $rfc2616ContentRange]))['Body'];
     })
 ;
 
@@ -69,7 +69,7 @@ $csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentChu
             // 何故なら列数が想定通りであっても行の途中である可能性がある為である.
             if ($numReadRows < 2) {
                 fseek($fp, 0);
-                $incompleteContentBuffer = stream_get_contents($fp);
+                $incompleteContentBuffer = \stream_get_contents($fp);
 
                 continue;
             } else {
@@ -91,5 +91,5 @@ $csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentChu
 });
 
 foreach ($csvRows as $v) {
-    echo sprintf('%s / %.4f MB', print_r($v, true), memory_get_peak_usage() / 1024 / 1024), "\n";
+    echo \sprintf('%s / %.4f MB', \print_r($v, true), \memory_get_peak_usage() / 1024 / 1024), "\n";
 }
