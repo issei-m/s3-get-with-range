@@ -6,23 +6,24 @@ $s3 = new \Aws\S3\S3Client([
     'version' => '2006-03-01',
     'region' => 'us-west-2',
     // MINIO
-    'endpoint' => 'http://127.0.0.1:19000',
+    'endpoint' => 'http://127.0.0.1:9000',
     'use_path_style_endpoint' => true,
     'access_key_id' => 'MINIO4DEV',
     'secret_access_key' => 'MINIO4DEV',
 ]);
 
-$objectAddress = ['Bucket' => 'test', 'Key' => 'awesome.csv'];
+$csvObjectInfo = ['Bucket' => 'test', 'Key' => 'awesome.csv'];
 
-$contentSize = $s3->headObject($objectAddress)['ContentLength'];
+$csvContentLength = $s3->headObject($csvObjectInfo)['ContentLength'];
 
-$csvContentChunkStreams = \DusanKasan\Knapsack\Collection
-    ::from(function () use ($contentSize) {
+// CSVの内容を10MBバイトごとに分割したリストを作成.
+$csvContentsInChunk = \DusanKasan\Knapsack\Collection
+    ::from(function () use ($csvContentLength) {
         static $chunkSize = 1024 * 1024;
 
         // オブジェクトのサイズから1MB毎のチャンクのリストを作る
-        for ($start = 0, $end = 0; $contentSize > $end; $start = $end + 1) {
-            $end = \min($start + $chunkSize, $contentSize);
+        for ($start = 0, $end = 0; $csvContentLength > $end; $start = $end + 1) {
+            $end = \min($start + $chunkSize, $csvContentLength);
             yield [$start, $end];
         }
     })
@@ -31,24 +32,22 @@ $csvContentChunkStreams = \DusanKasan\Knapsack\Collection
 
         return \sprintf('bytes=%s-%s', $range[0], $range[1]);
     })
-    ->map(function (string $rfc2616ContentRange) use ($s3, $objectAddress) {
-        return $s3->getObject(\array_merge($objectAddress, ['Range' => $rfc2616ContentRange]))['Body'];
+    ->map(function (string $rfc2616ContentRange) use ($s3, $csvObjectInfo) {
+        return (string) $s3->getObject(\array_merge($csvObjectInfo, ['Range' => $rfc2616ContentRange]))['Body'];
     })
 ;
 
-$csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentChunkStreams) {
-    static $expectedCsvColumns = 12;
+$csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentsInChunk) {
+    static $expectedCsvColumns = 5;
 
     $incompleteContentBuffer = '';
     $counter = 0;
 
-    foreach ($csvContentChunkStreams as $stream) {
-        \assert($stream instanceof \Psr\Http\Message\StreamInterface);
-
+    foreach ($csvContentsInChunk as $chunk) {
         $fp = \fopen('php://memory', 'r+');
 
         try {
-            \fwrite($fp, $incompleteContentBuffer . $stream->__toString());
+            \fwrite($fp, $incompleteContentBuffer . $chunk);
             \fseek($fp, 0);
 
             $readAt = 0;
@@ -66,7 +65,7 @@ $csvRows = \DusanKasan\Knapsack\Collection::from(function () use ($csvContentChu
             }
 
             // 先のwhileは最低でも2回以上ループしている必要がある.
-            // 何故なら列数が想定通りであっても行の途中である可能性がある為である.
+            // 何故なら例え列数が想定通りであっても、1回目のループで取得された行は途中で途切れている可能性がある為.
             if ($numReadRows < 2) {
                 fseek($fp, 0);
                 $incompleteContentBuffer = \stream_get_contents($fp);
